@@ -19,15 +19,14 @@ def fetch_chat_id():
     )
 
     args = parser.parse_args()
-    chat_id = args.chat_id
-    return chat_id
+    return args.chat_id
 
 
 def main():
     load_dotenv()
     token = os.environ['TOKEN_DVMN']
     token_tg = os.environ['TOKEN_TG']
-    chat_id = create_chat_id()
+    chat_id = fetch_chat_id()
     timestamp = 0
     bot = telegram.Bot(token=token_tg)
 
@@ -58,7 +57,7 @@ def main():
         except requests.exceptions.ReadTimeout:
             print(f'нет изменений, последняя метка {timestamp}')
         except requests.exceptions.ConnectionError:
-            (print('нет соединения'))
+            print('нет соединения')
 
 
 if __name__ == '__main__':
