@@ -6,7 +6,7 @@ import telegram
 from dotenv import load_dotenv
 
 
-def create_chat_id():
+def fetch_chat_id():
     parser = argparse.ArgumentParser(
         description='Скрипт для отслеживания, выполненных заданий'
     )
