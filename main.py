@@ -32,7 +32,7 @@ def get_statistic(token, timestamp):
     params = {
         'timestamp': timestamp,
     }
-    response = requests.get(url, headers=headers, params=params, timeout=20)
+    response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
     return response.json()
 
@@ -52,17 +52,17 @@ def main():
                 timestamp = response['timestamp_to_request']
             if response['status'] == 'found':
                 timestamp = response['last_attempt_timestamp']
-                answer = response['new_attempts'][0]
-                status = answer['is_negative']
-                lesson = answer['lesson_title']
-                if status:
-                    bot.send_message(chat_id=chat_id,
-                                     text=f'Здравствуйте, '
-                                          f'преподаватель проверил работу! В работе "{lesson}" есть ошибки')
-                else:
-                    bot.send_message(chat_id=chat_id,
-                                     text=f'Здравствуйте, '
-                                          f'преподаватель проверил работу! В работе "{lesson}" нет ошибок')
+                for answer in response['new_attempts']:
+                    status = answer['is_negative']
+                    lesson = answer['lesson_title']
+                    if status:
+                        bot.send_message(chat_id=chat_id,
+                                         text=f'Здравствуйте, '
+                                              f'преподаватель проверил работу! В работе "{lesson}" есть ошибки')
+                    else:
+                        bot.send_message(chat_id=chat_id,
+                                         text=f'Здравствуйте, '
+                                              f'преподаватель проверил работу! В работе "{lesson}" нет ошибок')
 
         except requests.exceptions.ReadTimeout:
             logging.warning(f'нет изменений, последняя метка {timestamp}')
