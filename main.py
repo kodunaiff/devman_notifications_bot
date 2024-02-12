@@ -1,5 +1,7 @@
 import argparse
+import logging
 import os
+import time
 
 import requests
 import telegram
@@ -22,6 +24,19 @@ def fetch_chat_id():
     return args.chat_id
 
 
+def get_statistic(token, timestamp):
+    url = 'https://dvmn.org/api/long_polling/'
+    headers = {
+        'Authorization': f'Token {token}',
+    }
+    params = {
+        'timestamp': timestamp,
+    }
+    response = requests.get(url, headers=headers, params=params, timeout=20)
+    response.raise_for_status()
+    return response.json()
+
+
 def main():
     load_dotenv()
     token = os.environ['TOKEN_DVMN']
@@ -30,34 +45,30 @@ def main():
     timestamp = 0
     bot = telegram.Bot(token=token_tg)
 
-    url = 'https://dvmn.org/api/long_polling/'
-    headers = {
-        'Authorization': f'Token {token}',
-    }
     while True:
-        params = {
-            'timestamp': timestamp,
-        }
         try:
-            response = requests.get(url, headers=headers, timeout=10, params=params)
-            response.raise_for_status()
-            answer = response.json()['new_attempts'][0]
-            timestamp = answer['timestamp']
-            status = answer['is_negative']
-            lesson = answer['lesson_title']
-            if status:
-                bot.send_message(chat_id=chat_id,
-                                 text=f'Здравствуйте, '
-                                      f'преподаватель проверил работу! В работе "{lesson}" есть ошибки')
-            else:
-                bot.send_message(chat_id=chat_id,
-                                 text=f'Здравствуйте, '
-                                      f'преподаватель проверил работу! В работе "{lesson}" нет ошибок')
+            response = get_statistic(token, timestamp)
+            if response['status'] == 'timeout':
+                timestamp = response['timestamp_to_request']
+            if response['status'] == 'found':
+                timestamp = response['last_attempt_timestamp']
+                answer = response['new_attempts'][0]
+                status = answer['is_negative']
+                lesson = answer['lesson_title']
+                if status:
+                    bot.send_message(chat_id=chat_id,
+                                     text=f'Здравствуйте, '
+                                          f'преподаватель проверил работу! В работе "{lesson}" есть ошибки')
+                else:
+                    bot.send_message(chat_id=chat_id,
+                                     text=f'Здравствуйте, '
+                                          f'преподаватель проверил работу! В работе "{lesson}" нет ошибок')
 
         except requests.exceptions.ReadTimeout:
-            print(f'нет изменений, последняя метка {timestamp}')
+            logging.warning(f'нет изменений, последняя метка {timestamp}')
         except requests.exceptions.ConnectionError:
-            print('нет соединения')
+            logging.warning('Отсутствие соединения, ожидание ..')
+            time.sleep(20)
 
 
 if __name__ == '__main__':
