@@ -4,8 +4,21 @@ import os
 import time
 
 import requests
-import telegram
 from dotenv import load_dotenv
+from telegram.ext import Updater
+
+logger = logging.getLogger(__name__)
+
+
+class TelegramLogsHandler(logging.Handler):
+    def __init__(self, tg_bot, chat_id):
+        super().__init__()
+        self.chat_id = chat_id
+        self.tg_bot = tg_bot
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        self.tg_bot.send_message(chat_id=self.chat_id, text=log_entry)
 
 
 def fetch_chat_id():
@@ -39,11 +52,19 @@ def get_statistic(token, timestamp):
 
 def main():
     load_dotenv()
+
     token = os.environ['TOKEN_DVMN']
     token_tg = os.environ['TOKEN_TG']
     chat_id = fetch_chat_id()
+
+    updater = Updater(token=token_tg)
+    dp = updater.dispatcher
+
+    logger.setLevel(logging.INFO)
+    logger.addHandler(TelegramLogsHandler(dp.bot, chat_id))
+    logger.info("Бот запущен!")
+
     timestamp = 0
-    bot = telegram.Bot(token=token_tg)
 
     while True:
         try:
@@ -56,19 +77,22 @@ def main():
                     status = answer['is_negative']
                     lesson = answer['lesson_title']
                     if status:
-                        bot.send_message(chat_id=chat_id,
-                                         text=f'Здравствуйте, '
-                                              f'преподаватель проверил работу! В работе "{lesson}" есть ошибки')
+                        dp.bot.send_message(chat_id=chat_id,
+                                            text=f'Здравствуйте, '
+                                                 f'преподаватель проверил работу! В работе "{lesson}" есть ошибки')
                     else:
-                        bot.send_message(chat_id=chat_id,
-                                         text=f'Здравствуйте, '
-                                              f'преподаватель проверил работу! В работе "{lesson}" нет ошибок')
+                        dp.bot.send_message(chat_id=chat_id,
+                                            text=f'Здравствуйте, '
+                                                 f'преподаватель проверил работу! В работе "{lesson}" нет ошибок')
 
         except requests.exceptions.ReadTimeout:
-            logging.warning(f'нет изменений, последняя метка {timestamp}')
+            logger.debug(f'нет изменений, последняя метка {timestamp}')
         except requests.exceptions.ConnectionError:
-            logging.warning('Отсутствие соединения, ожидание ..')
+            logger.debug('Отсутствие соединения, ожидание ..')
             time.sleep(20)
+        except Exception as err:
+            logger.exception(err)
+            time.sleep(5)
 
 
 if __name__ == '__main__':
